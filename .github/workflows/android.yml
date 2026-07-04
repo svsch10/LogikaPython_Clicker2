@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [ "main" ]  # Або master
+    branches: [ "main" ]  # Або master, якщо ваша головна гілка називається master
   workflow_dispatch:
 
 jobs:
@@ -16,31 +16,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Android SDK Manager and Licenses via Python
+    - name: Fix Buildozer SDK Path and Pre-Accept Licenses
       run: |
-        # 1. Створюємо правильну структуру папок для ліцензій та інструментів
-        mkdir -p /github/home/.buildozer/android/platform/android-sdk/cmdline-tools/latest
+        # 1. Примусово створюємо внутрішню структуру папок, яку вимагає Buildozer
+        mkdir -p /github/home/.buildozer/android/platform/android-sdk/tools/bin
         mkdir -p /github/home/.buildozer/android/platform/android-sdk/licenses
 
-        # 2. Завантажуємо та розпаковуємо утиліти Google (cmdline-tools) за допомогою вбудованого Python
-        python3 -c "
-        import urllib.request, zipfile, os
-        url = 'https://google.com'
-        print('Downloading cmdline-tools...')
-        urllib.request.urlretrieve(url, '/tmp/cmdline-tools.zip')
-        print('Extracting...')
-        with zipfile.ZipFile('/tmp/cmdline-tools.zip', 'r') as zip_ref:
-            zip_ref.extractall('/tmp/cmdline-out')
-        "
+        # 2. Робимо "місток" (символічне посилання) до РЕАЛЬНОГО sdkmanager, 
+        # який вже встановлений авторами Kivy всередині цього Docker-контейнера
+        ln -s /home/user/.android/cmdline-tools/latest/bin/sdkmanager /github/home/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager || true
 
-        # 3. Переміщуємо розпаковані файли у правильну робочу директорію Buildozer
-        mv /tmp/cmdline-out/cmdline-tools/* /github/home/.buildozer/android/platform/android-sdk/cmdline-tools/latest/
-        
-        # 4. Створюємо символічне посилання (місток) для застарілої перевірки Buildozer
-        mkdir -p /github/home/.buildozer/android/platform/android-sdk/tools/bin
-        ln -s /github/home/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager /github/home/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
-
-        # 5. Записуємо актуальні цифрові ліцензії Google в домашню папку контейнера
+        # 3. Записуємо актуальні цифрові ліцензії Google, щоб Buildozer не зупиняв роботу
         echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > /github/home/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
         echo "84831b9409646a918e30573bab4c9c91346d8abd" >> /github/home/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
         echo "6c1769a36595e6ae1e4fbee2d9931ef1130252af" >> /github/home/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
@@ -50,7 +36,8 @@ jobs:
       run: |
         git config --global --add safe.directory '*'
         
-        # Запускаємо автоматичну збірку з потоком відповідей "yes"
+        # Запускаємо збірку. Buildozer побачить підкладений sdkmanager, 
+        # успішно пройде перевірку шляхів і почне компіляцію програми.
         yes | buildozer android debug
 
     - name: Upload APK Artifact
