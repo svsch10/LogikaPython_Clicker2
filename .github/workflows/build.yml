@@ -1,0 +1,46 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ "main" ]  # Перевірте, чи ваша головна гілка називається main, чи master
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/kivy/buildozer:latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Accept SDK Licenses via Buildozer Container
+      run: |
+        # 1. Змушуємо Buildozer створити свою внутрішню структуру папок SDK в домашній директорії Docker
+        buildozer android status || true
+        
+        # 2. Створюємо папку для ліцензій там, де її реально шукає внутрішній менеджер
+        mkdir -p /github/home/.buildozer/android/platform/android-sdk/licenses
+        
+        # 3. Записуємо актуальні цифрові ключі (хеші) ліцензій Google прямо в домашню папку контейнера
+        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > /github/home/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+        echo "84831b9409646a918e30573bab4c9c91346d8abd" >> /github/home/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+        echo "6c1769a36595e6ae1e4fbee2d9931ef1130252af" >> /github/home/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+        echo "893543563402757754d5b78ae383bc5d1792d1f0" > /github/home/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
+        echo "e96e059cef157434a4fce21c3510a64bcb5e4f4f" > /github/home/.buildozer/android/platform/android-sdk/licenses/android-googletv-license
+
+    - name: Build APK with Buildozer
+      run: |
+        git config --global --add safe.directory '*'
+        
+        # Запускаємо автоматичну збірку. Тепер ліцензії підписані в потрібному місці,
+        # і Buildozer успішно розпакує build-tools та запустить aidl.
+        yes | buildozer android debug
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: package
+        path: bin/*.apk
