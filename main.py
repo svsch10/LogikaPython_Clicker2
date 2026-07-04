@@ -37,7 +37,7 @@ class GameScreen(Screen):
     level = NumericProperty(1)
     
     # Фоновий звук гри
-    back_sound = SoundLoader.load('assets/audios/Black_Swan_part.mp3')
+    back_sound = SoundLoader.load('assets/audios/black_swan_part.mp3')
     back_sound.loop = True # "Закільцювати" звук
     # Звук по завершенню рівня
     level_complete_sound = SoundLoader.load('assets/audios/level_complete.ogg')
