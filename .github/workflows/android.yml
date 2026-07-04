@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [ "main" ]  # Перевірте, чи ваша головна гілка називається main, чи master
+    branches: [ "main" ]  # Змініть на master, якщо ваша гілка master
   workflow_dispatch:
 
 jobs:
@@ -16,27 +16,34 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Accept SDK Licenses via Buildozer Container
+    - name: Setup Android SDK Manager and Licenses
       run: |
-        # 1. Змушуємо Buildozer створити свою внутрішню структуру папок SDK в домашній директорії Docker
-        buildozer android status || true
-        
-        # 2. Створюємо папку для ліцензій там, де її реально шукає внутрішній менеджер
+        # 1. Створюємо правильну сучасну структуру папок для cmdline-tools всередині Docker
+        mkdir -p /github/home/.buildozer/android/platform/android-sdk/cmdline-tools/latest
         mkdir -p /github/home/.buildozer/android/platform/android-sdk/licenses
+
+        # 2. Завантажуємо ОФІЦІЙНИЙ стабільний пакет інструментів від Google (cmdline-tools)
+        wget -q https://google.com -O /tmp/cmdline-tools.zip
         
-        # 3. Записуємо актуальні цифрові ключі (хеші) ліцензій Google прямо в домашню папку контейнера
+        # 3. Розпаковуємо утиліти Google безпосередньо у робочу зону Buildozer
+        unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-out
+        mv /tmp/cmdline-out/cmdline-tools/* /github/home/.buildozer/android/platform/android-sdk/cmdline-tools/latest/
+        
+        # 4. Створюємо фейковий місток для застарілої перевірки Buildozer (щоб він не шукає tools/bin)
+        mkdir -p /github/home/.buildozer/android/platform/android-sdk/tools/bin
+        ln -s /github/home/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager /github/home/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
+
+        # 5. Записуємо актуальні цифрові ліцензії Google, щоб робота не переривалася
         echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > /github/home/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
         echo "84831b9409646a918e30573bab4c9c91346d8abd" >> /github/home/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
         echo "6c1769a36595e6ae1e4fbee2d9931ef1130252af" >> /github/home/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
         echo "893543563402757754d5b78ae383bc5d1792d1f0" > /github/home/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
-        echo "e96e059cef157434a4fce21c3510a64bcb5e4f4f" > /github/home/.buildozer/android/platform/android-sdk/licenses/android-googletv-license
 
     - name: Build APK with Buildozer
       run: |
         git config --global --add safe.directory '*'
         
-        # Запускаємо автоматичну збірку. Тепер ліцензії підписані в потрібному місці,
-        # і Buildozer успішно розпакує build-tools та запустить aidl.
+        # Запускаємо автоматичну збірку з потоком відповідей "yes"
         yes | buildozer android debug
 
     - name: Upload APK Artifact
