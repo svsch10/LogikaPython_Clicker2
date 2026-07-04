@@ -18,7 +18,7 @@ package.domain = com.github.svsch10
 source.dir = .
 
 # (list) Source files to include (leave empty to include all the files)
-source.include_exts = py,png,jpg,kv,ttf
+source.include_exts = py,png,jpg,kv,ttf,mp3,ogg
 
 # (list) List of inclusions using pattern matching
 #source.include_patterns = assets/*,images/*.png
